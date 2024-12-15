@@ -6,19 +6,27 @@ import numpy as np
 import re
 from langchain_community.document_loaders import CSVLoader
 from langchain.llms import Ollama
-from langchain.llms import LLMChain
+from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 import spacy
 from collections import Counter
 from io import StringIO
 import tempfile
+import streamlit as st
+
 
 # Load the Teacher's document using docx
 #Extract course outcomes
 co_numbers=[]
 course_outcomes=[]
 
-doc=Document('Syllabus.docx')
+st.title("Assessement and Course Plan Generator")
+st.divider()
+st.header("Please Upload the Syllabus Document here for Processing")
+st.divider()
+uploaded_file = st.file_uploader("Upload a Word document (.docx)", type="docx")
+if uploaded_file is not None:
+    doc = Document(uploaded_file)
 
 for tables in doc.tables:
     for row in tables.rows:
@@ -371,7 +379,7 @@ def create_temp_csv_for_langchain(df):
 
 #Loading using Langchain Loader
 
-temp_csv_path = create_temp_csv_for_langchain(df)
+temp_csv_path = create_temp_csv_for_langchain(df_units)
 
 loader = CSVLoader(file_path=temp_csv_path, csv_args={
     'delimiter': ',',
@@ -396,9 +404,9 @@ for doc in documents:
     if len(content_lines) >= 9:
         entry = {
             "Unit": content_lines[0].strip(),          # First line: Unit
-            "Topic": content_lines[2].strip(),         # Second line: Topic
-            "Contents": content_lines[3].strip(),      # Third line: Contents
-            "Assessments": set(content_lines[8].strip().split(';'))  # Ninth line: Assessments (handling repeated assessments)
+            "Topic": content_lines[1].strip(),         # Second line: Topic
+            "Contents": content_lines[2].strip(),      # Third line: Contents
+            "Assessments": set(content_lines[9].strip().split(';'))  # Ninth line: Assessments (handling repeated assessments)
         }
         # Join the assessments back into a single string (if they were split into a set)
         entry["Assessments"] = ', '.join(entry["Assessments"])
@@ -406,54 +414,75 @@ for doc in documents:
         data.append(entry)
 
 
+if data:
+    # Extract unique units
+    unique_units = sorted(set(item["Unit"] for item in data if "Unit" in item))
+# Create a dropdown in the Streamlit app to select a unit
+    selected_unit = st.selectbox("Select a Unit", unique_units)
 
-# Step 3: Define a prompt template
-prompt_template = PromptTemplate(
-    input_variables=["unit", "contents", "assessments"],
-    template=(
-        """
-You are an AI specializing in educational assessments, designed to work through tasks step by step to generate targeted and comprehensive assessments. Below is information about a unit:
-Unit: {unit}
-Contents: {contents}
-Vague Assessments: {assessments}
+    if selected_unit:
+    # Filter the data for the selected unit
+        selected_data = [item for item in data if item["Unit"] == selected_unit]
+    
+    if selected_data:
+        # Display the details of the selected unit
+        st.write(f"### Details for Selected Unit: {selected_unit}")
+        st.json(selected_data)  # Show JSON format of the filtered data
+        
+        # Extract required fields for further processing
+        topics = ", ".join(item["Topic"] for item in selected_data)
+        contents = ", ".join(item["Contents"] for item in selected_data)
+        assessments = ", ".join(item["Assessments"] for item in selected_data)
+            
+            # Step 2: Generate assessments
+        if st.button("Generate Assessments"):
+                st.write("Generating assessments. Please wait...")
+                
+                # Define prompt template
+                prompt_template = PromptTemplate(
+                    input_variables=["unit", "contents", "assessments"],
+                    template=(
+                        """
+                        You are an AI specializing in educational assessments, designed to work through tasks step by step to generate targeted and comprehensive assessments. Below is information about a unit:
+                        Unit: {unit}
+                        Contents: {contents}
+                        Vague Assessments: {assessments}
 
-Task:
+                        Task:
+                        1. Identify Assessment Types: Analyze the provided vague assessments and identify a broad range of specific assessment types.
+                        2. Link to Content: Extract the key topics and concepts from the unit's content that align with the identified assessment types.
+                        3. Generate Tailored Assessments: For each assessment type, create detailed and actionable assessments based on the unit's content.
+                        Deliverable: Provide diverse, specific, and measurable assessments tailored to the unit.
+                        """
+                    )
+                )
 
-Identify Assessment Types: Analyze the provided vague assessments and identify a broad range of specific assessment types, such as 'essay,' 'MCQ,' 'fill in the blank,' 'case study,' 'diagram labeling,' 'problem-solving,' 'coding exercises,' or others.
-Link to Content: Extract the key topics and concepts from the unit's content that align with the identified assessment types.
-Generate Tailored Assessments: For each assessment type, create detailed and actionable assessments based on the unit's content. Examples include:
-Essay: If the content includes 'word embeddings,' the assessment could be: "Write a detailed essay explaining the concept of word embeddings and their role in natural language processing."
-Fill in the Blank: For the topic 'vector representations,' the assessment could be: "_____ is the process of representing words as vectors in a high-dimensional space."
-Case Study: If the content covers 'applications of word embeddings,' the assessment could be: "Analyze a case study where word embeddings were used to improve search engine results."
-Diagram Labeling: If the content involves 'neural network structures,' the assessment could be: "Label the components of the diagram showing the architecture of a word embedding model."
-Problem-Solving: For a topic on 'cosine similarity,' the assessment could be: "Calculate the cosine similarity between the following two word vectors."
-Deliverable: Provide diverse, specific, and measurable assessments tailored to the unit, ensuring alignment with the content and coverage of a wide range of assessment types.
-"""
-    )
-)
+                # Initialize LLM and chain
+                llama = Ollama(model="llama3.2")
+                llm_chain = LLMChain(llm=llama, prompt=prompt_template)
 
+                # Run the prompt
+                response = llm_chain.run({
+                    "unit": selected_unit,
+                    "contents": contents,
+                    "assessments": assessments
+                })
 
-# Step 4: Initialize the LLM and create a chain
-llama = Ollama(model="llama3.2")
-llm_chain = LLMChain(llm=llama, prompt=prompt_template)
-
-# Step 5: Generate specific assessments
-specific_assessments = []
-for entry in data:
-    response = llm_chain.run({ 
-        "unit": entry["Unit"],
-        "contents": entry["Contents"],
-        "assessments": entry["Assessments"]
-    })
-    specific_assessments.append({"Unit": entry["Unit"], "Specific Assessments": response})
-
-# Step 6: Save the results to a CSV file
-df = pd.DataFrame(specific_assessments)
-output_file = "specific_assessments.csv"
-df.to_csv(output_file, index=False)
-
-print(f"Specific assessments have been saved to {output_file}")
-
+                # Display the generated assessments
+                st.write("### Generated Assessments")
+                st.text(response)
+                
+                # Option to download the results
+                st.download_button(
+                    label="Download Assessments",
+                    data=response,
+                    file_name=f"assessments_{selected_unit}.txt",
+                    mime="text/plain"
+                )
+        else:
+            st.error("No data found for the selected unit.")
+else:
+    st.error("No data available to display. Please load valid structured data.")
 
 
 
