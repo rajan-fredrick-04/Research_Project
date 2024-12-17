@@ -447,12 +447,17 @@ if data:
                         Unit: {unit}
                         Contents: {contents}
                         Vague Assessments: {assessments}
-
+                        
                         Task:
-                        1. Identify Assessment Types: Analyze the provided vague assessments and identify a broad range of specific assessment types.
-                        2. Link to Content: Extract the key topics and concepts from the unit's content that align with the identified assessment types.
-                        3. Generate Tailored Assessments: For each assessment type, create detailed and actionable assessments based on the unit's content.
-                        Deliverable: Provide diverse, specific, and measurable assessments tailored to the unit.
+                        Identify Assessment Types: Analyze the provided vague assessments and identify a broad range of specific assessment types, such as 'essay,' 'MCQ,' 'fill in the blank,' 'case study,' 'diagram labeling,' 'problem-solving,' 'coding exercises,' or others.
+                        Link to Content: Extract the key topics and concepts from the unit's content that align with the identified assessment types.
+                        Generate Tailored Assessments: For each assessment type, create detailed and actionable assessments based on the unit's content. Examples include:
+                        Essay: If the content includes 'word embeddings,' the assessment could be: "Write a detailed essay explaining the concept of word embeddings and their role in natural language processing."
+                        Fill in the Blank: For the topic 'vector representations,' the assessment could be: "_____ is the process of representing words as vectors in a high-dimensional space."
+                        Case Study: If the content covers 'applications of word embeddings,' the assessment could be: "Analyze a case study where word embeddings were used to improve search engine results."
+                        Diagram Labeling: If the content involves 'neural network structures,' the assessment could be: "Label the components of the diagram showing the architecture of a word embedding model."
+                        Problem-Solving: For a topic on 'cosine similarity,' the assessment could be: "Calculate the cosine similarity between the following two word vectors."
+                        Deliverable: Provide diverse, specific, and measurable assessments tailored to the unit, ensuring alignment with the content and coverage of a wide range of assessment types.
                         """
                     )
                 )
