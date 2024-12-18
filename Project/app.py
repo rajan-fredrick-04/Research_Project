@@ -4,14 +4,15 @@ from course_plan_gen import course_plan_generator
 
 # Welcome Page
 def Home_page():
-    st.title("Welcome to the Project!")
+    st.title("Assessment and Course Plan Generator")
+    st.divider()
     st.write("""
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
-    Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
-    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
-    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
-    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-    Curabitur pretium tincidunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit.
+    Welcome to the Course and Assessment Plan Generator!
+In today's rapidly evolving educational landscape, aligning course plans with well-defined learning outcomes is critical for effective teaching. This AI-powered tool simplifies the process by leveraging Bloom’s Taxonomy to structure learning objectives and assessments.
+Educators often face challenges in manually designing detailed course plans that integrate session-wise content, assessments, and pedagogy. This tool automates the generation of course plans and assessments, ensuring they match specific Course Outcomes (COs).
+By streamlining this traditionally time-intensive task, our solution allows educators to focus on delivering impactful learning experiences while adhering to pedagogical standards.
+Simply input your course outcomes, and let AI handle the rest—effortlessly aligning content, objectives, and assessments for optimal learning.
+
     """)
 
 # Main function to manage navigation
@@ -22,11 +23,11 @@ def main():
 
     # Sidebar for navigation buttons
     st.sidebar.title("Navigation")
-    if st.sidebar.button("Home"):
+    if st.sidebar.button("Home",use_container_width=True):
         st.session_state.page = "Home"
-    if st.sidebar.button("Course Plan Generator"):
+    if st.sidebar.button("Course Plan Generator",use_container_width=True):
         st.session_state.page = "Course Plan Generator"
-    if st.sidebar.button("Assessment Generator"):
+    if st.sidebar.button("Assessment Generator",use_container_width=True):
         st.session_state.page = "Assessment Generator"
 
 
