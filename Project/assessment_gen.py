@@ -21,7 +21,7 @@ def assessment_generator():
     co_numbers=[]
     course_outcomes=[]
 
-    st.title("Assessement Generator")
+    st.title("Assessement +Generator")
     st.divider()
     st.header("Please Upload the Syllabus Document here for Processing")
     st.divider()
