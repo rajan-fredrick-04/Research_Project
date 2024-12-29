@@ -395,7 +395,6 @@ def assessment_generator():
     loader = CSVLoader(file_path=temp_csv_path, csv_args={
         'delimiter': ',',
         'quotechar': '"',
-        'fieldnames': ['','Unit','Topic','Contents','Teaching Hours','Course Outcomes','Similarity Score','Verbs','Filtered Assessments']
     })
 
     documents = loader.load()
@@ -405,23 +404,19 @@ def assessment_generator():
     # Step 2: Extract structured data from loaded documents
     data = []
     for doc in documents:
-        # Extract content from each document
-        content = doc.page_content.strip()
-        
-        # Split the content by newline characters to separate columns
-        content_lines = content.split('\n')
-        
-        # Ensure there are enough parts in the split content
-        if len(content_lines) >= 9:
+        content_lines = doc.page_content.strip().split('\n')
+    
+        if len(content_lines) >= 7:  # Adjusted to match the actual structure
             entry = {
-                "Unit": content_lines[0].strip(),          # First line: Unit
-                "Topic": content_lines[1].strip(),         # Second line: Topic
-                "Contents": content_lines[2].strip(),      # Third line: Contents
-                "Assessments": set(content_lines[8].strip().split(','))  # Ninth line: Assessments (handling repeated assessments)
+                "Unit": content_lines[0].replace("Unit:", "").strip(),
+                "Topic": content_lines[1].replace("Topic:", "").strip(),
+                "Contents": content_lines[2].replace("Contents:", "").strip(),
+                "Teaching Hours": content_lines[3].replace("Teaching Hours:", "").strip(),
+                "Course Outcomes": content_lines[4].replace("Course Outcomes:", "").strip(),
+                "Similarity Score": content_lines[5].replace("Similarity Score:", "").strip(),
+                "Verbs": content_lines[6].replace("Verbs:", "").strip(),
+                "Filtered Assessments": content_lines[7].replace("Filtered Assessments:", "").strip(),
             }
-            # Join the assessments back into a single string (if they were split into a set)
-            entry["Assessments"] = ', '.join(entry["Assessments"])
-            
             data.append(entry)
 
 
@@ -443,7 +438,7 @@ def assessment_generator():
             # Extract required fields for further processing
             topics = ", ".join(item["Topic"] for item in selected_data)
             contents = ", ".join(item["Contents"] for item in selected_data)
-            assessments = ", ".join(item["Assessments"] for item in selected_data)
+            assessments = ", ".join(item["Filtered Assessments"] for item in selected_data)
                 
                 # Step 2: Generate assessments
             if st.button("Generate Assessments"):
