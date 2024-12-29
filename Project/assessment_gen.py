@@ -21,7 +21,7 @@ def assessment_generator():
     co_numbers=[]
     course_outcomes=[]
 
-    st.title("Assessement +Generator")
+    st.title("Assessement Generator")
     st.divider()
     st.header("Please Upload the Syllabus Document here for Processing")
     st.divider()
@@ -38,7 +38,7 @@ def assessment_generator():
 
     # Directly create DataFrame from extracted table data if column headings are included
     df = pd.DataFrame([co_numbers, course_outcomes]).transpose()
-
+    print(df)
     # Rename columns only if needed
     df.columns = df.iloc[0]  # Set the first row as the header
     df = df[1:].reset_index(drop=True) 
@@ -152,7 +152,7 @@ def assessment_generator():
 
     # Extract Verbs from the Course Outcomes
     course_outcomes=[]
-    for i in range(len(df)+1):
+    for i in range(len(df)):
         data=df_units['Course Outcomes'].iloc[i]
         course_outcomes.append(data)
 
@@ -166,7 +166,15 @@ def assessment_generator():
         filtered_verbs = [word for word, tag in review if tag in verbs]
         course_verbs.append(filtered_verbs)
 
-    # Assign the collected verbs list to the DataFrame column
+    # Compare lengths of df_units and course_verbs
+    if len(course_verbs) < len(df_units):
+    # Extend course_verbs to match df_units length
+        course_verbs.extend([[]] * (len(df_units) - len(course_verbs)))
+    elif len(course_verbs) > len(df_units):
+    # Truncate course_verbs to match df_units length
+        course_verbs = course_verbs[:len(df_units)]
+
+# Assign adjusted course_verbs to the 'Verbs' column
     df_units['Verbs'] = course_verbs
 
     # Load the defined verb-assesment dataset (grouped)
@@ -360,6 +368,8 @@ def assessment_generator():
 
     # Step 7: Apply the recheck to limit to top 3 assessments
     df_units = recheck_and_limit_empty_units(df_units)
+    df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
+    df_units.to_csv("op.csv")
 
 
 
@@ -385,7 +395,7 @@ def assessment_generator():
     loader = CSVLoader(file_path=temp_csv_path, csv_args={
         'delimiter': ',',
         'quotechar': '"',
-        'fieldnames': ['','Unit','Topic','Contents','Teaching Hours','Course Outcomes','Similarity Score','Verbs','Assessments']
+        'fieldnames': ['','Unit','Topic','Contents','Teaching Hours','Course Outcomes','Similarity Score','Verbs','Filtered Assessments']
     })
 
     documents = loader.load()
@@ -407,7 +417,7 @@ def assessment_generator():
                 "Unit": content_lines[0].strip(),          # First line: Unit
                 "Topic": content_lines[1].strip(),         # Second line: Topic
                 "Contents": content_lines[2].strip(),      # Third line: Contents
-                "Assessments": set(content_lines[9].strip().split(';'))  # Ninth line: Assessments (handling repeated assessments)
+                "Assessments": set(content_lines[8].strip().split(','))  # Ninth line: Assessments (handling repeated assessments)
             }
             # Join the assessments back into a single string (if they were split into a set)
             entry["Assessments"] = ', '.join(entry["Assessments"])
@@ -444,21 +454,38 @@ def assessment_generator():
                         input_variables=["unit", "contents", "assessments"],
                         template=(
                             """
-                            You are an AI specializing in educational assessments, designed to work through tasks step by step to generate targeted and comprehensive assessments. Below is information about a unit:
-                            Unit: {unit}
-                            Contents: {contents}
-                            Vague Assessments: {assessments}
-                            
-                            Task:
-                            Identify Assessment Types: Analyze the provided vague assessments and identify a broad range of specific assessment types, such as 'essay,' 'MCQ,' 'fill in the blank,' 'case study,' 'diagram labeling,' 'problem-solving,' 'coding exercises,' or others.
-                            Link to Content: Extract the key topics and concepts from the unit's content that align with the identified assessment types.
-                            Generate Tailored Assessments: For each assessment type, create detailed and actionable assessments based on the unit's content. Examples include:
-                            Essay: If the content includes 'word embeddings,' the assessment could be: "Write a detailed essay explaining the concept of word embeddings and their role in natural language processing."
-                            Fill in the Blank: For the topic 'vector representations,' the assessment could be: "_____ is the process of representing words as vectors in a high-dimensional space."
-                            Case Study: If the content covers 'applications of word embeddings,' the assessment could be: "Analyze a case study where word embeddings were used to improve search engine results."
-                            Diagram Labeling: If the content involves 'neural network structures,' the assessment could be: "Label the components of the diagram showing the architecture of a word embedding model."
-                            Problem-Solving: For a topic on 'cosine similarity,' the assessment could be: "Calculate the cosine similarity between the following two word vectors."
-                            Deliverable: Provide diverse, specific, and measurable assessments tailored to the unit, ensuring alignment with the content and coverage of a wide range of assessment types.
+                               You are an AI specializing in educational assessments, designed to work through tasks step by step to generate targeted and comprehensive assessments. Below is information about a unit:
+        Unit: {unit}
+        Contents: {contents}
+        Vague Assessments: {assessments}
+        
+        Task:
+        1. *Identify Assessment Types:* 
+           Analyze the provided vague assessments and classify them into broader categories based on similarity. Examples of categories:
+           - *Quiz:* Includes 'fill in the blank,' 'multiple-choice questions (MCQ),' 'matching,' etc.
+           - *Written Assignments:* Includes 'essays,' 'case studies,' 'research summaries,' etc.
+           - *Hands-On Tasks:* Includes 'problem-solving,' 'coding exercises,' 'lab work,' etc.
+           - *Visual Assessments:* Includes 'diagram labeling,' 'flowchart creation,' etc.
+        
+        2. *Rank Assessment Types:* 
+           Rank the assessment types within each category based on their suitability for evaluating the unit's content. Consider factors such as:
+           - Relevance to the key topics and concepts.
+           - Effectiveness in measuring learning outcomes.
+           - Cognitive level required (e.g., application, analysis, synthesis).
+           Example: If the unit covers 'applications of word embeddings,' a case study may rank higher than a diagram labeling task.
+
+        3. *Generate Tailored Assessments:* 
+           For each ranked assessment type, create detailed and actionable assessments aligned with the unit's content. Examples include:
+           - *Quiz (MCQ):* For 'vector representations,' an assessment could be: "Which process is used to represent words as vectors? (a) Clustering (b) Word Embeddings (c) TF-IDF (d) Stemming."
+           - *Written Assignments (Essay):* For 'word embeddings,' an assessment could be: "Write an essay explaining how word embeddings improve natural language processing applications."
+           - *Hands-On Tasks (Problem-Solving):* For 'cosine similarity,' an assessment could be: "Given the following word vectors, calculate their cosine similarity."
+           - *Visual Assessments (Diagram Labeling):* For 'neural network structures,' an assessment could be: "Label the components of the following diagram showing the architecture of a word embedding model."
+
+        Deliverable: 
+        - A classification of assessments into broader categories.
+        - A ranked list of assessment types within each category, from most suitable to least suitable for the unit's content.
+        - Specific and measurable assessments tailored to the unit, ensuring alignment with the content and coverage of a wide range of cognitive levels.
+
                             """
                         )
                     )

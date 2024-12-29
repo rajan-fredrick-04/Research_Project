@@ -4,7 +4,7 @@ from course_plan_gen import course_plan_generator
 
 # Welcome Page
 def Home_page():
-    st.title("Assessment and Course Plan Generator")
+    st.title("Content Aware prompt engineering for course plan generation")
     st.divider()
     st.write("""
     Welcome to the Course and Assessment Plan Generator!
