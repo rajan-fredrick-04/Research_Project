@@ -369,7 +369,7 @@ def assessment_generator():
     # Step 7: Apply the recheck to limit to top 3 assessments
     df_units = recheck_and_limit_empty_units(df_units)
     df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
-    df_units.to_csv("op.csv")
+    
 
 
 
@@ -449,37 +449,36 @@ def assessment_generator():
                         input_variables=["unit", "contents", "assessments"],
                         template=(
                             """
-                               You are an AI specializing in educational assessments, designed to work through tasks step by step to generate targeted and comprehensive assessments. Below is information about a unit:
+                        You are an AI specializing in educational assessments, designed to generate targeted and comprehensive assessments in a structured format. Below is information about a unit:
         Unit: {unit}
         Contents: {contents}
         Vague Assessments: {assessments}
         
         Task:
-        1. *Identify Assessment Types:* 
-           Analyze the provided vague assessments and classify them into broader categories based on similarity. Examples of categories:
-           - *Quiz:* Includes 'fill in the blank,' 'multiple-choice questions (MCQ),' 'matching,' etc.
-           - *Written Assignments:* Includes 'essays,' 'case studies,' 'research summaries,' etc.
-           - *Hands-On Tasks:* Includes 'problem-solving,' 'coding exercises,' 'lab work,' etc.
-           - *Visual Assessments:* Includes 'diagram labeling,' 'flowchart creation,' etc.
-        
-        2. *Rank Assessment Types:* 
-           Rank the assessment types within each category based on their suitability for evaluating the unit's content. Consider factors such as:
-           - Relevance to the key topics and concepts.
-           - Effectiveness in measuring learning outcomes.
-           - Cognitive level required (e.g., application, analysis, synthesis).
-           Example: If the unit covers 'applications of word embeddings,' a case study may rank higher than a diagram labeling task.
+        1. *Identify and Classify Assessment Types:* 
+           Analyze the provided vague assessments and classify them into broader categories based on similarity. Categories include:
+           - *Quiz:* Includes 'fill in the blank,' 'multiple-choice questions (MCQ),' 'true/false,' 'matching,' etc.
+           - *Written Assignments:* Includes 'essays,' 'case studies,' 'short answers,' 'research papers,' etc.
+           - *Hands-On Tasks:* Includes 'problem-solving,' 'coding exercises,' 'simulations,' 'data analysis,' etc.
+           - *Visual Assessments:* Includes 'diagram labeling,' 'flowchart creation,' 'concept maps,' 'model building,' etc.
+           - *Presentation-Based Tasks:* Includes 'oral presentations,' 'poster creation,' 'group discussions,' 'debates,' etc.
+           - *Collaborative Tasks:* Includes 'group projects,' 'peer reviews,' 'team-based case studies,' etc.
+           - *Reflective Assessments:* Includes 'journals,' 'learning logs,' 'self-assessment reports,' etc.
+           - *Practical/Field Assessments:* Includes 'fieldwork reports,' 'lab experiments,' 'performance demonstrations,' etc.
+           - *Role-Playing or Scenario-Based Tasks:* Includes 'role-play simulations,' 'scenario-based decision making,' etc.
+           - *Creative Assessments:* Includes 'storytelling,' 'video creation,' 'artwork-based assessments,' etc.
 
-        3. *Generate Tailored Assessments:* 
-           For each ranked assessment type, create detailed and actionable assessments aligned with the unit's content. Examples include:
-           - *Quiz (MCQ):* For 'vector representations,' an assessment could be: "Which process is used to represent words as vectors? (a) Clustering (b) Word Embeddings (c) TF-IDF (d) Stemming."
-           - *Written Assignments (Essay):* For 'word embeddings,' an assessment could be: "Write an essay explaining how word embeddings improve natural language processing applications."
-           - *Hands-On Tasks (Problem-Solving):* For 'cosine similarity,' an assessment could be: "Given the following word vectors, calculate their cosine similarity."
-           - *Visual Assessments (Diagram Labeling):* For 'neural network structures,' an assessment could be: "Label the components of the following diagram showing the architecture of a word embedding model."
+        2. *Generate Assessments in Tabular Format:* 
+           For each assessment type, identify specific assessments aligned with the unit's content and organize them into a table with the following columns:
+           - *Unit:* The name of the unit being assessed.
+           - *Assessment Type (Category):* The category to which the assessment belongs (e.g., Quiz, Written Assignments, Hands-On Tasks, etc.).
+           - *Assessments:* Specific assessment tasks tailored to the unit's content.
 
         Deliverable: 
-        - A classification of assessments into broader categories.
-        - A ranked list of assessment types within each category, from most suitable to least suitable for the unit's content.
-        - Specific and measurable assessments tailored to the unit, ensuring alignment with the content and coverage of a wide range of cognitive levels.
+        - A table with the columns "Unit," "Assessment Type (Category)," and "Assessments."
+        - Ensure all assessments are specific, measurable, and aligned with the content of the unit.
+
+
 
                             """
                         )
