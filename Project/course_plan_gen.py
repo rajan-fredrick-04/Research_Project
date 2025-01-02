@@ -153,7 +153,7 @@ def course_plan_generator():
 
     # Extract Verbs from the Course Outcomes
     course_outcomes=[]
-    for i in range(len(df)+1):
+    for i in range(len(df)):
         data=df_units['Course Outcomes'].iloc[i]
         course_outcomes.append(data)
 
@@ -167,7 +167,15 @@ def course_plan_generator():
         filtered_verbs = [word for word, tag in review if tag in verbs]
         course_verbs.append(filtered_verbs)
 
-    # Assign the collected verbs list to the DataFrame column
+    # Compare lengths of df_units and course_verbs
+    if len(course_verbs) < len(df_units):
+    # Extend course_verbs to match df_units length
+        course_verbs.extend([[]] * (len(df_units) - len(course_verbs)))
+    elif len(course_verbs) > len(df_units):
+    # Truncate course_verbs to match df_units length
+        course_verbs = course_verbs[:len(df_units)]
+
+# Assign adjusted course_verbs to the 'Verbs' column
     df_units['Verbs'] = course_verbs
 
     # Load the defined verb-assesment dataset (grouped)
@@ -361,6 +369,7 @@ def course_plan_generator():
 
     # Step 7: Apply the recheck to limit to top 3 assessments
     df_units = recheck_and_limit_empty_units(df_units)
+    df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
 
 
 
@@ -386,7 +395,7 @@ def course_plan_generator():
     loader = CSVLoader(file_path=temp_csv_path, csv_args={
         'delimiter': ',',
         'quotechar': '"',
-        'fieldnames': ['','Unit','Topic','Contents','Teaching Hours','Course Outcomes','Similarity Score','Verbs','Assessments']
+        
     })
 
     documents = loader.load()
@@ -396,24 +405,19 @@ def course_plan_generator():
     # Step 2: Extract structured data from loaded documents
     data = []
     for doc in documents:
-        # Extract content from each document
-        content = doc.page_content.strip()
-        
-        # Split the content by newline characters to separate columns
-        content_lines = content.split('\n')
-        
-        # Ensure there are enough parts in the split content
-        if len(content_lines) >= 9:
+        content_lines = doc.page_content.strip().split('\n')
+    
+        if len(content_lines) >= 7:  # Adjusted to match the actual structure
             entry = {
-                "Unit": content_lines[0].strip(),          # First line: Unit
-                "Topic": content_lines[1].strip(),         # Second line: Topic
-                "Contents": content_lines[2].strip(),
-                "Teaching Hours": content_lines[3].strip(),      # Third line: Contents
-                "Assessments": set(content_lines[9].strip().split(';'))  # Ninth line: Assessments (handling repeated assessments)
+                "Unit": content_lines[0].replace("Unit:", "").strip(),
+                "Topic": content_lines[1].replace("Topic:", "").strip(),
+                "Contents": content_lines[2].replace("Contents:", "").strip(),
+                "Teaching Hours": content_lines[3].replace("Teaching Hours:", "").strip(),
+                "Course Outcomes": content_lines[4].replace("Course Outcomes:", "").strip(),
+                "Similarity Score": content_lines[5].replace("Similarity Score:", "").strip(),
+                "Verbs": content_lines[6].replace("Verbs:", "").strip(),
+                "Filtered Assessments": content_lines[7].replace("Filtered Assessments:", "").strip(),
             }
-            # Join the assessments back into a single string (if they were split into a set)
-            entry["Assessments"] = ', '.join(entry["Assessments"])
-            
             data.append(entry)
 
     if data:
@@ -441,7 +445,7 @@ def course_plan_generator():
                 topics = ", ".join(item["Topic"] for item in unit_data)
                 contents = ", ".join(item["Contents"] for item in unit_data)
                 teaching_hours = ", ".join(item["Teaching Hours"] for item in unit_data)
-                assessments = ", ".join(item["Assessments"] for item in unit_data)
+                assessments = ", ".join(item["Filtered Assessments"] for item in unit_data)
 
                 # Collect this unit's data into all_units_data
                 all_units_data.append({
@@ -477,31 +481,33 @@ def course_plan_generator():
             prompt_template = PromptTemplate(
                 input_variables=["all_units_data"],
                 template=(  """
-    You are an AI educational planner tasked with generating a comprehensive and structured course plan for multiple units. Below is the combined information for all units:
+   You are an AI educational planner tasked with generating a comprehensive and structured course plan for multiple units. Below is the combined information for all units:
 
     {all_units_data}
 
-    **Task**:  
-    1. **Divide the Total Teaching Hours** for each unit into manageable sessions (e.g., weekly sessions or daily sessions), ensuring each session has a logical distribution of time and content coverage.  
-    2. For each session, specify:  
-    - Session Number (e.g., Session 1, Session 2, etc.)  
-    - Content to be covered during the session, ensuring it aligns with the total unit contents. Break the content logically across the sessions to maintain a smooth flow.  
-    - Duration for the session (in hours) based on the provided total teaching hours.  
-    - Key Topics/Concepts to be covered in the session.  
-    3. The course plan should aim for an even distribution of teaching hours across all sessions. If necessary, prioritize core concepts earlier in the plan and ensure the pacing is manageable for students.  
+Task:
+1. Each session will be treated as 1 individual hour.
+2. For each session, specify:
+   - Session Number (e.g., Session 1, Session 2, etc.)
+   - Content to be covered during the session, ensuring it aligns with the total unit contents. Break the content logically across the sessions to maintain a smooth flow.
+   - Duration: 1 hour.
+   - Key Topics/Concepts to be covered in the session.
 
-    **Example Output**:  
-    - **Session 1**:  
-        - Duration: 2 Hours  
-        - Content: Introduction to word embeddings and vector representations  
-        - Topics: Basic definition, importance, and key concepts of word embeddings  
-    - **Session 2**:  
-        - Duration: 2 Hours  
-        - Content: Applications of word embeddings in NLP  
-        - Topics: Search engines, semantic similarity, and sentiment analysis  
+3. The course plan should aim for an even distribution of teaching hours across all sessions. If necessary, prioritize core concepts earlier in the plan and ensure the pacing is manageable for students.
 
-    **Deliverable**:  
-    Provide a detailed course plan with an appropriate number of sessions for all units, each covering part of the unit's content. Ensure alignment between the session duration, total teaching hours, and content.
+Example Output:
+- Session 1:
+   - Duration: 1 Hour
+   - Content: Introduction to word embeddings and vector representations
+   - Topics: Basic definition, importance, and key concepts of word embeddings
+
+- Session 2:
+   - Duration: 1 Hour
+   - Content: Applications of word embeddings in NLP
+   - Topics: Search engines, semantic similarity, and sentiment analysis
+
+Deliverable:
+Provide a detailed course plan with an appropriate number of 1-hour sessions for all units, each covering part of the unit's content. Ensure alignment between the session duration, total teaching hours, and content while maintaining logical and manageable pacing for students.
                             """
                     )
                 )
