@@ -13,36 +13,47 @@ os.environ["GROQ_API_KEY"]=os.getenv("GROQ_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 #Load a Google LLM Model
-#genai=ChatGoogleGenerativeAI(model="gemini-pro",
-#        temperature=0.3)
+genai=ChatGoogleGenerativeAI(model="gemini-pro",verbose=True,
+        temperature=0.3)
 
 # Load a Groq model
-groq_model=ChatGroq(model="llama-3.1-8b-instant",verbose=True,temperature=0.2)
+#groq_model=ChatGroq(model="llama-3.1-8b-instant",verbose=True,temperature=0.2)
 
 
 course_plan=Agent(
     role="course plan generator",
-    goal="generate a course plan",
+    goal="Create a structured, comprehensive course plan with evenly distributed 1-hour sessions tailored to the provided unit data.",
     llm=groq_model,
-    backstory=(),
+    backstory=(
+        "The agent specializes in generating educational plans for instructors, ensuring logical flow and manageable pacing. "
+        "The focus is on breaking down complex unit content into well-structured 1-hour sessions that align with the total teaching hours. "
+        "By prioritizing core concepts and maintaining student engagement, the agent supports effective learning outcomes."
+    ),
     tools=[tool],
     allow_delegation=False
 )
 
 assessment=Agent(
     role="assessment generator",
-    goal="generate assessments",
-    llm=groq_model,
-    backstory=(),
+    goal="Create tailored and comprehensive assessments aligned with course units, ensuring logical categorization, relevance, and cognitive depth.",
+    backstory=(
+        "The agent specializes in designing educational assessments that align closely with unit content and learning outcomes. "
+        "It categorizes vague assessments into clear types such as quizzes, written assignments, hands-on tasks, and visual assessments. "
+        "The agent ensures that the generated assessments are ranked for suitability, effectively measure student understanding, and cover all critical concepts in a structured manner."
+    ),
     tools=[tool], #verbose=True
     allow_delegation=False # True - If we want a separate tool that gives the final output
 )
 
-manager=Agent(
+manager = Agent(
     role="plan generator",
-    goal="Genrate a complete course plan",
+    goal="Combine course plans and assessments to generate a comprehensive final report that integrates structured sessions with aligned evaluations.",
+    backstory=(
+        "The agent acts as a manager that synthesizes outputs from the course plan generator and assessment generator. "
+        "Its primary objective is to produce a unified and detailed report that ensures a cohesive learning experience. "
+        "By integrating structured session plans with relevant assessments, the agent guarantees alignment between teaching strategies and evaluation methods, offering a complete educational framework."
+    ),
     llm=groq_model,
-    backstory=(),
     memory=True,
     verbose=True,
     allow_delegation=True
