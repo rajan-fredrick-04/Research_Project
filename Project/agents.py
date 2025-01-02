@@ -23,7 +23,7 @@ genai=ChatGoogleGenerativeAI(model="gemini-pro",verbose=True,
 course_plan=Agent(
     role="course plan generator",
     goal="Create a structured, comprehensive course plan with evenly distributed 1-hour sessions tailored to the provided unit data.",
-    llm=groq_model,
+    llm=genai,
     backstory=(
         "The agent specializes in generating educational plans for instructors, ensuring logical flow and manageable pacing. "
         "The focus is on breaking down complex unit content into well-structured 1-hour sessions that align with the total teaching hours. "
@@ -41,6 +41,7 @@ assessment=Agent(
         "It categorizes vague assessments into clear types such as quizzes, written assignments, hands-on tasks, and visual assessments. "
         "The agent ensures that the generated assessments are ranked for suitability, effectively measure student understanding, and cover all critical concepts in a structured manner."
     ),
+    llm=genai,
     tools=[tool], #verbose=True
     allow_delegation=False # True - If we want a separate tool that gives the final output
 )
@@ -53,7 +54,7 @@ manager = Agent(
         "Its primary objective is to produce a unified and detailed report that ensures a cohesive learning experience. "
         "By integrating structured session plans with relevant assessments, the agent guarantees alignment between teaching strategies and evaluation methods, offering a complete educational framework."
     ),
-    llm=groq_model,
+    llm=genai,
     memory=True,
     verbose=True,
     allow_delegation=True

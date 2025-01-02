@@ -369,6 +369,7 @@ def assessment_generator():
     # Step 7: Apply the recheck to limit to top 3 assessments
     df_units = recheck_and_limit_empty_units(df_units)
     df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
+    df_units.to_csv("op1.csv")
     
 
 
