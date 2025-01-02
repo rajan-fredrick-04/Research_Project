@@ -13,6 +13,10 @@ from collections import Counter
 from io import StringIO
 import tempfile
 import streamlit as st
+import spacy
+
+
+
 
 
 def assessment_generator():
@@ -151,28 +155,30 @@ def assessment_generator():
     print(df_units)
 
     # Extract Verbs from the Course Outcomes
-    course_outcomes=[]
-    for i in range(len(df)):
-        data=df_units['Course Outcomes'].iloc[i]
-        course_outcomes.append(data)
-
+    # course_outcomes=[]
+    # for i in range(len(df)):
+    #     data=df_units['Course Outcomes'].iloc[i]
+    #     course_outcomes.append(data)
+    course_outcomes = df_units['Course Outcomes'].tolist()
     #Verbs
-    verbs=['VB','VBP','VBD','VBG','VBN']
+    verbs=['VB','VBP','VBD','VBG','VBN','MD']
+    nlp = spacy.load("en_core_web_sm")
     course_verbs = []
-    for i in range(len(course_outcomes)):
-        review = course_outcomes[i]
-        review = review.split()
-        review = nltk.pos_tag(review)
-        filtered_verbs = [word for word, tag in review if tag in verbs]
-        course_verbs.append(filtered_verbs)
+    for outcome in course_outcomes:
+        if isinstance(outcome, str):
+            doc = nlp(outcome.lower().strip())
+            filtered_verbs = [token.text for token in doc if token.pos_ == "VERB"]
+            course_verbs.append(filtered_verbs)
+        else:
+            course_verbs.append([])
 
-    # Compare lengths of df_units and course_verbs
-    if len(course_verbs) < len(df_units):
-    # Extend course_verbs to match df_units length
-        course_verbs.extend([[]] * (len(df_units) - len(course_verbs)))
-    elif len(course_verbs) > len(df_units):
-    # Truncate course_verbs to match df_units length
-        course_verbs = course_verbs[:len(df_units)]
+    # # Compare lengths of df_units and course_verbs
+    # if len(course_verbs) < len(df_units):
+    # # Extend course_verbs to match df_units length
+    #     course_verbs.extend([[]] * (len(df_units) - len(course_verbs)))
+    # elif len(course_verbs) > len(df_units):
+    # # Truncate course_verbs to match df_units length
+    #     course_verbs = course_verbs[:len(df_units)]
 
 # Assign adjusted course_verbs to the 'Verbs' column
     df_units['Verbs'] = course_verbs

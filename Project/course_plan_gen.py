@@ -13,6 +13,9 @@ from collections import Counter
 from io import StringIO
 import tempfile
 import streamlit as st
+import spacy
+
+
 
 
 def course_plan_generator():
@@ -152,28 +155,31 @@ def course_plan_generator():
     print(df_units)
 
     # Extract Verbs from the Course Outcomes
-    course_outcomes=[]
-    for i in range(len(df)):
-        data=df_units['Course Outcomes'].iloc[i]
-        course_outcomes.append(data)
+    # course_outcomes=[]
+    # for i in range(len(df)):
+    #     data=df_units['Course Outcomes'].iloc[i]
+    #     course_outcomes.append(data)
 
+    course_outcomes = df_units['Course Outcomes'].tolist()
     #Verbs
-    verbs=['VB','VBP','VBD','VBG','VBN']
+    verbs=['VB','VBP','VBD','VBG','VBN','MD']
+    nlp = spacy.load("en_core_web_sm")
     course_verbs = []
-    for i in range(len(course_outcomes)):
-        review = course_outcomes[i]
-        review = review.split()
-        review = nltk.pos_tag(review)
-        filtered_verbs = [word for word, tag in review if tag in verbs]
-        course_verbs.append(filtered_verbs)
+    for outcome in course_outcomes:
+        if isinstance(outcome, str):
+            doc = nlp(outcome.lower().strip())
+            filtered_verbs = [token.text for token in doc if token.pos_ == "VERB"]
+            course_verbs.append(filtered_verbs)
+        else:
+            course_verbs.append([])
 
-    # Compare lengths of df_units and course_verbs
-    if len(course_verbs) < len(df_units):
-    # Extend course_verbs to match df_units length
-        course_verbs.extend([[]] * (len(df_units) - len(course_verbs)))
-    elif len(course_verbs) > len(df_units):
-    # Truncate course_verbs to match df_units length
-        course_verbs = course_verbs[:len(df_units)]
+    # # Compare lengths of df_units and course_verbs
+    # if len(course_verbs) < len(df_units):
+    # # Extend course_verbs to match df_units length
+    #     course_verbs.extend([[]] * (len(df_units) - len(course_verbs)))
+    # elif len(course_verbs) > len(df_units):
+    # # Truncate course_verbs to match df_units length
+    #     course_verbs = course_verbs[:len(df_units)]
 
 # Assign adjusted course_verbs to the 'Verbs' column
     df_units['Verbs'] = course_verbs
@@ -297,79 +303,76 @@ def course_plan_generator():
     # Convert the list of characters in the "Verbs" column back to strings
     df_units['Verbs'] = df_units['Verbs'].apply(lambda x: ''.join(x) if isinstance(x, list) else x)
 
+    df_units.to_excel("int1.xlsx")
     # Getting only unique assessments - Filtering
 
-    def clean_assessments(assessments):
-        if isinstance(assessments, list):  # Check if it's already a list
-            assessments = " ".join(assessments)  # Convert the list to a single string
-        assessments = assessments.strip("[]").replace("'", "").replace('"', "")
-        return [x.strip() for x in assessments.split("•") if x.strip()]
+    
 
+    # Clean up the assessments data
+    def clean_assessments(assessments):
+        # If it's a list, join the elements to make it a string
+        if isinstance(assessments, list):
+            assessments = " ".join(assessments)
+        
+        # Clean and split assessments
+        assessments = assessments.strip("[]").replace("'", "").replace('"', "")
+        
+        # Split by bullet points (•) and filter out empty assessments
+        cleaned_assessments = [x.strip() for x in assessments.split("•") if x.strip()]
+        
+        # If no valid assessments, return None
+        if not cleaned_assessments:
+            print("No valid assessments found:", assessments)
+        return cleaned_assessments if cleaned_assessments else None  # None indicates no valid assessments
+
+    # Apply cleaning to the DataFrame
     df_units["Assessments_cleaned"] = df_units["Assessments"].apply(clean_assessments)
 
-
-    all_assessments = [item for sublist in df_units["Assessments_cleaned"] for item in sublist]
+    # Count the occurrences of each assessment
+    all_assessments = [item for sublist in df_units["Assessments_cleaned"] if sublist for item in sublist]
     assessment_counts = Counter(all_assessments)
 
-    # Step 4: Apply the filtering logic iteratively
+    # Filter assessments based on the count and threshold
     def filter_assessments(row, assessment_counts, threshold=3):
-        unique_assessments = []
-        
-        for assessment in row:
-            # If the assessment appears more than once and the unit has more than threshold assessments, remove it
-            if assessment_counts[assessment] > 1 and len(row) > threshold:
-                continue  # Remove this assessment from the unit
-            # If the assessment appears more than once and the unit has less than threshold assessments, keep it
-            elif assessment_counts[assessment] > 1 and len(row) < threshold:
-                unique_assessments.append(assessment)
-            # Otherwise, always add the assessment
-            else:
-                unique_assessments.append(assessment)
-        
-        return unique_assessments
-
-    # Step 5: Apply the filtering function to each row (unit)
-    df_units["Filtered Assessments"] = df_units["Assessments_cleaned"].apply(
-        lambda row: filter_assessments(row, assessment_counts, threshold=3)
-    )
-
-
-    # Step 4: Apply the filtering logic iteratively
-    def filter_assessments(row, assessment_counts, threshold=3):
-        # Create a list to hold filtered assessments
         filtered_assessments = []
-        # Iterate over the assessments of each unit
-        for assessment in row:
-            # If the assessment appears more than once and the unit has more than threshold assessments, remove it
-            if assessment_counts[assessment] > 1 and len(row) > threshold:
-                continue  # Remove this assessment from the unit
-            # If the assessment appears more than once and the unit has less than threshold assessments, keep it
-            elif assessment_counts[assessment] > 1 and len(row) < threshold:
-                filtered_assessments.append(assessment)
-            # Otherwise, always add the assessment
-            else:
+        if row:  # Proceed only if there are assessments
+            for assessment in row:
+                if assessment_counts[assessment] > 1 and len(row) > threshold:
+                    print(f"Skipping {assessment} as it is repeated and unit has more than {threshold} assessments.")
+                    continue  # Skip if it's a duplicate and unit has more than threshold assessments
                 filtered_assessments.append(assessment)
         
+        # If no assessments remain, take the top 3 from the original list
+        if not filtered_assessments and row:
+            print(f"Fallback to top {threshold} assessments from original list: {row[:threshold]}")
+            filtered_assessments = row[:threshold]
+
         return filtered_assessments
 
-    # Step 5: Apply the filtering function to each row (unit)
+    # Apply filtering to each row (unit)
     df_units["Filtered Assessments"] = df_units["Assessments_cleaned"].apply(
         lambda row: filter_assessments(row, assessment_counts, threshold=3)
     )
 
-    # Step 6: Ensure no unit is left empty but limit to top 3 assessments if necessary
+    # Ensure no unit is left empty; limit to top 3 if necessary
     def recheck_and_limit_empty_units(df, limit=3):
         for index, row in df.iterrows():
-            # If a unit's filtered assessments are empty, we restore the top 3 from its original assessments
-            if not row["Filtered Assessments"]:
+            if not row["Filtered Assessments"]:  # If the filtered assessments are empty
                 original_assessments = row["Assessments_cleaned"]
-                # Ensure that the filtered assessments are limited to the top 3
+                print(f"Empty filtered assessments for unit {index}. Replacing with top {limit} from original: {original_assessments[:limit]}")
+                # Take the top 'limit' number of assessments if filtered ones are empty
                 df.at[index, "Filtered Assessments"] = original_assessments[:limit]
         return df
 
-    # Step 7: Apply the recheck to limit to top 3 assessments
+    # Recheck and apply the recheck logic
     df_units = recheck_and_limit_empty_units(df_units)
-    df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
+
+    # Drop original columns for cleanliness
+    df_units.drop(["Assessments", "Assessments_cleaned"], axis=1, inplace=True)
+
+
+
+    df_units.to_csv("op2.csv")
 
 
 
@@ -481,37 +484,34 @@ def course_plan_generator():
             prompt_template = PromptTemplate(
                 input_variables=["all_units_data"],
                 template=(  """
-   You are an AI educational planner tasked with generating a comprehensive and structured course plan for multiple units. Below is the combined information for all units:
+    You are an AI educational planner tasked with generating a comprehensive and structured course plan for multiple units. Below is the combined information for all units:
 
     {all_units_data}
 
-Task:
-1. Each session will be treated as 1 individual hour.
-2. For each session, specify:
-   - Session Number (e.g., Session 1, Session 2, etc.)
-   - Content to be covered during the session, ensuring it aligns with the total unit contents. Break the content logically across the sessions to maintain a smooth flow.
-   - Duration: 1 hour.
-   - Key Topics/Concepts to be covered in the session.
+    Task:  
+    1. Divide the Total Teaching Hours** for each unit into manageable sessions (e.g., weekly sessions or daily sessions), ensuring each session has a logical distribution of time (whole number) and content coverage. have a maximum of 3 sessions for each unit.
+    2. For each session, specify:  
+    - Session Number (e.g., Session 1, Session 2, etc.)  
+    - Content to be covered during the session, ensuring it aligns with the total unit contents. Break the content logically across the sessions to maintain a smooth flow.  
+    - Duration for the session (in hours) based on the provided total teaching hours.  
+    - Key Topics/Concepts to be covered in the session.  
+    3. The course plan should aim for an even distribution of teaching hours across all sessions. If necessary, prioritize core concepts earlier in the plan and ensure the pacing is manageable for students.  
 
-3. The course plan should aim for an even distribution of teaching hours across all sessions. If necessary, prioritize core concepts earlier in the plan and ensure the pacing is manageable for students.
+    Example Output:  
+    - Session 1:  
+        - Duration: 2 Hours  
+        - Content: Introduction to word embeddings and vector representations  
+        - Topics: Basic definition, importance, and key concepts of word embeddings  
+    - Session 2:  
+        - Duration: 2 Hours  
+        - Content: Applications of word embeddings in NLP  
+        - Topics: Search engines, semantic similarity, and sentiment analysis  
 
-Example Output:
-- Session 1:
-   - Duration: 1 Hour
-   - Content: Introduction to word embeddings and vector representations
-   - Topics: Basic definition, importance, and key concepts of word embeddings
-
-- Session 2:
-   - Duration: 1 Hour
-   - Content: Applications of word embeddings in NLP
-   - Topics: Search engines, semantic similarity, and sentiment analysis
-
-Deliverable:
-Provide a detailed course plan with an appropriate number of 1-hour sessions for all units, each covering part of the unit's content. Ensure alignment between the session duration, total teaching hours, and content while maintaining logical and manageable pacing for students.
+    Deliverable:  
+    Provide a detailed course plan with an appropriate number of sessions for all units, each covering part of the unit's content. Ensure alignment between the session duration, total teaching hours, and content.
                             """
                     )
                 )
-
             # Initialize LLM and chain
             llama = Ollama(model="llama3.2")
             llm_chain = LLMChain(llm=llama, prompt=prompt_template)
