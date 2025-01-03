@@ -31,21 +31,31 @@ def course_plan_generator():
     uploaded_file = st.file_uploader("Upload a Word document (.docx)", type="docx")
     doc=None
     if uploaded_file is not None:
-        doc = Document(uploaded_file)
+        try:
+            doc = Document(uploaded_file)
+            for tables in doc.tables:
+                for row in tables.rows:
+                    cells=[cell.text.strip() for cell in row.cells]
+                    if len(cells)==2:
+                        co_numbers.append(cells[0])
+                        course_outcomes.append(cells[1])
 
-    for tables in doc.tables:
-        for row in tables.rows:
-            cells=[cell.text.strip() for cell in row.cells]
-            if len(cells)==2:
-                co_numbers.append(cells[0])
-                course_outcomes.append(cells[1])
+        except Exception as e:
+            # Handle any errors during processing
+            st.error(f"An error occurred while processing the document: {e}")
+    else:
+        st.info("Please upload a document to proceed.")
 
     # Directly create DataFrame from extracted table data if column headings are included
     df = pd.DataFrame([co_numbers, course_outcomes]).transpose()
 
     # Rename columns only if needed
-    df.columns = df.iloc[0]  # Set the first row as the header
-    df = df[1:].reset_index(drop=True) 
+    if not df.empty:
+        df.columns = df.iloc[0]  # Set the first row as the header
+        df = df[1:].reset_index(drop=True)  # Drop the first row after setting it as the header
+    else:
+        st.warning("The uploaded file does not contain any data or is not in the expected format.")
+        return
 
     # Extracting the Units - Topics - Teaching Hours from syllabus
     units = []
@@ -303,7 +313,7 @@ def course_plan_generator():
     # Convert the list of characters in the "Verbs" column back to strings
     df_units['Verbs'] = df_units['Verbs'].apply(lambda x: ''.join(x) if isinstance(x, list) else x)
 
-    df_units.to_excel("int1.xlsx")
+    #df_units.to_excel("int1.xlsx")
     # Getting only unique assessments - Filtering
 
     
@@ -372,7 +382,7 @@ def course_plan_generator():
 
 
 
-    df_units.to_csv("op2.csv")
+    
 
 
 

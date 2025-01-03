@@ -31,21 +31,31 @@ def assessment_generator():
     st.divider()
     uploaded_file = st.file_uploader("Upload a Word document (.docx)", type="docx")
     if uploaded_file is not None:
-        doc = Document(uploaded_file)
+        try:
+            doc = Document(uploaded_file)
+            for tables in doc.tables:
+                for row in tables.rows:
+                    cells=[cell.text.strip() for cell in row.cells]
+                    if len(cells)==2:
+                        co_numbers.append(cells[0])
+                        course_outcomes.append(cells[1])
 
-    for tables in doc.tables:
-        for row in tables.rows:
-            cells=[cell.text.strip() for cell in row.cells]
-            if len(cells)==2:
-                co_numbers.append(cells[0])
-                course_outcomes.append(cells[1])
+        except Exception as e:
+            # Handle any errors during processing
+            st.error(f"An error occurred while processing the document: {e}")
+    else:
+        st.info("Please upload a document to proceed.")
 
     # Directly create DataFrame from extracted table data if column headings are included
     df = pd.DataFrame([co_numbers, course_outcomes]).transpose()
     print(df)
     # Rename columns only if needed
-    df.columns = df.iloc[0]  # Set the first row as the header
-    df = df[1:].reset_index(drop=True) 
+    if not df.empty:
+        df.columns = df.iloc[0]  # Set the first row as the header
+        df = df[1:].reset_index(drop=True)  # Drop the first row after setting it as the header
+    else:
+        st.warning("The uploaded file does not contain any data or is not in the expected format.")
+        return
 
     # Extracting the Units - Topics - Teaching Hours from syllabus
     units = []
@@ -375,7 +385,7 @@ def assessment_generator():
     # Step 7: Apply the recheck to limit to top 3 assessments
     df_units = recheck_and_limit_empty_units(df_units)
     df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
-    df_units.to_csv("op1.csv")
+   
     
 
 

@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 os.environ["GOOGLE_API_KEY"]=os.getenv("GOOGLE_API_KEY")
+os.environ["OPENAI_API_KEY"]=os.getenv("OPENAI_API_KEY")
+
+# tool=CSVSearchTool(csv="./op.csv")
 
 tool = CSVSearchTool(
     csv="./op.csv",
