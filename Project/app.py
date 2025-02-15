@@ -6,13 +6,7 @@ from course_plan_gen import course_plan_generator
 st.markdown("""
     <style>
     
-    body {
-        font-family: 'Arial', sans-serif;
-        background-color: #f4f4f9;
-        color: #333;
-        margin: 0;
-        padding: 0;
-    }
+  
 
     /* Header and Title for Main Content */
     .stTitle {
@@ -106,7 +100,7 @@ st.markdown("""
     }
 
     .stButton:hover {
-        background-color: #387038;
+        background-color: transparent;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -115,23 +109,26 @@ st.markdown("""
 def Home_page():
     st.markdown("""
         <style>
-        body, html {
+        stApp {
             margin: 0;
             padding: 0;
-            height: 100%;
+            height: 100vh;
         }
 
         .main-content {
             background-image: url('https://cdn.pixabay.com/photo/2014/06/28/12/35/books-378903_1280.jpg'); 
             background-size: cover;
-            background-position: center;
-            padding: 100px 20px;
-            color: white;
-            text-align: center;
-            min-height: 100vh; /* Ensure it takes the full viewport height */
+            background-repeat: no-repeat;
+            background-position: center center;
+            width:100vh;
+            min-height: 100vh; 
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Vertically center the content */
+            justify-content: center;
+            align-items: center; /* Horizontally center the content */
+            padding: 20px;
+            color: white;
+            text-align: center;
         }
 
         .main-content h1 {
@@ -154,6 +151,7 @@ def Home_page():
             By streamlining this traditionally time-intensive task, our solution allows educators to focus on delivering impactful learning experiences while adhering to pedagogical standards. Simply input your course outcomes, and let AI handle the rest—effortlessly aligning content, objectives, and assessments for optimal learning.</p>
         </div>
     """, unsafe_allow_html=True)
+
 
 # Main function to manage navigation
 def main():

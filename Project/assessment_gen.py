@@ -22,21 +22,22 @@ import spacy
 def assessment_generator():
 # Load the Teacher's document using docx
 #Extract course outcomes
-    co_numbers=[]
-    course_outcomes=[]
+    co_numbers = []
+    course_outcomes = []
 
-    st.title("Assessement Generator")
+    st.title("Course Plan Generator")
     st.divider()
     st.header("Please Upload the Syllabus Document here for Processing")
     st.divider()
     uploaded_file = st.file_uploader("Upload a Word document (.docx)", type="docx")
+    doc = None
     if uploaded_file is not None:
         try:
             doc = Document(uploaded_file)
-            for tables in doc.tables:
-                for row in tables.rows:
-                    cells=[cell.text.strip() for cell in row.cells]
-                    if len(cells)==2:
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    if len(cells) == 2:
                         co_numbers.append(cells[0])
                         course_outcomes.append(cells[1])
 
@@ -48,14 +49,14 @@ def assessment_generator():
 
     # Directly create DataFrame from extracted table data if column headings are included
     df = pd.DataFrame([co_numbers, course_outcomes]).transpose()
-    print(df)
+
     # Rename columns only if needed
     if not df.empty:
         df.columns = df.iloc[0]  # Set the first row as the header
         df = df[1:].reset_index(drop=True)  # Drop the first row after setting it as the header
     else:
         st.warning("The uploaded file does not contain any data or is not in the expected format.")
-        return
+        st.stop()
 
     # Extracting the Units - Topics - Teaching Hours from syllabus
     units = []
@@ -67,7 +68,7 @@ def assessment_generator():
         text = para.text.strip()
 
         # Check for "Unit" and start a new unit
-        if text.startswith("Unit"):
+        if text.lower().startswith("unit"):
             # Save the previous unit and its content
             if current_unit:
                 units.append((current_unit, " ".join(current_content)))
@@ -77,7 +78,7 @@ def assessment_generator():
             current_content = []
         elif current_unit:
             # Check if the paragraph contains Lab Exercises or Reading sections
-            if text.startswith("Lab Exercise") or text.startswith("Essential Reading") or text.startswith("Recommended Reading"):
+            if any(keyword in text.lower() for keyword in ["lab exercise", "essential reading", "recommended reading"]):
                 continue
             # Accumulate content for the current unit
             current_content.append(text)
@@ -91,7 +92,7 @@ def assessment_generator():
 
     # Extract teaching hours using the specific pattern "Teaching Hours: X"
     def extract_hours(contents):
-        match = re.search(r"Teaching Hours:\s*(\d+)", contents)
+        match = re.search(r"Teaching Hours:\s*(\d+)", contents, re.IGNORECASE)
         return int(match.group(1)) if match else None
 
     # Extract content before "Teaching Hours"
@@ -107,19 +108,17 @@ def assessment_generator():
     # Extract Topic from the unit by assuming it's the part of the string after "Unit X:"
     def extract_topic(unit):
         # Match unit topic patterns with different possible delimiters
-        match = re.search(r"Unit\s*\d+\s*[:\t\s](.+)", unit)
+        match = re.search(r"Unit\s*\d+\s*[:\t\s](.+)", unit, re.IGNORECASE)
         return match.group(1).strip() if match else ""  # Return empty string if no match
-
 
     # Apply topic extraction
     df_units['Topic'] = df_units['Unit'].apply(extract_topic)
 
     # Clean up "Unit" column to only contain the unit number (e.g., "Unit 1")
-    df_units['Unit'] = df_units['Unit'].apply(lambda x: re.match(r"Unit\s*\d+", x).group())
+    df_units['Unit'] = df_units['Unit'].apply(lambda x: re.match(r"Unit\s*\d+", x, re.IGNORECASE).group())
 
     # Reorder columns for better readability
     df_units = df_units[['Unit', 'Topic', 'Contents', 'Teaching Hours']]
-
     ### Matching the units with their respective course outcomes based on the similarity score
     from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -131,14 +130,40 @@ def assessment_generator():
     all_text = pd.concat([df['Course Outcomes'], df_units['Topic']])
 
     # Vectorize using TF-IDF
-    vectorizer = TfidfVectorizer()
+    if df_units.empty:
+        st.warning("No units found in the document. Please check the document format.")
+        return
+
+# Ensure df is not empty (already checked earlier)
+
+# Adjust vectorizer parameters to include more text patterns
+    vectorizer = TfidfVectorizer(stop_words=None)  # Include stop words as features
+
+    # Combine text data for vectorization
+    all_text = pd.concat([df['Course Outcomes'], df_units['Topic']])
+
+    # Check if all_text is non-empty
+    if all_text.str.strip().eq('').all():
+        st.warning("Course Outcomes and Unit Topics contain no text. Please check input data.")
+        return
+
+    # Vectorize using TF-IDF
     tfidf_matrix = vectorizer.fit_transform(all_text)
+
+    # Check if any features were extracted
+    if tfidf_matrix.shape[1] == 0:
+        st.warning("No features extracted from text. Check input data for valid content.")
+        return
 
     # Separate vectors for Course Outcomes and Topics
     course_outcome_vectors = tfidf_matrix[:len(df)]
     topic_vectors = tfidf_matrix[len(df):]
 
-    # Compute cosine similarity
+    # Compute cosine similarity only if both matrices have samples
+    if topic_vectors.shape[0] == 0 or course_outcome_vectors.shape[0] == 0:
+        st.warning("Insufficient data to match units with course outcomes.")
+        return
+
     similarity_matrix = cosine_similarity(topic_vectors, course_outcome_vectors)
 
     # Find the most similar course outcome for each unit
@@ -315,76 +340,72 @@ def assessment_generator():
     # Getting only unique assessments - Filtering
 
     def clean_assessments(assessments):
-        if isinstance(assessments, list):  # Check if it's already a list
-            assessments = " ".join(assessments)  # Convert the list to a single string
+    # If it's a list, join the elements to make it a string
+        if isinstance(assessments, list):
+            assessments = " ".join(assessments)
+        
+        # Clean and split assessments
         assessments = assessments.strip("[]").replace("'", "").replace('"', "")
-        return [x.strip() for x in assessments.split("•") if x.strip()]
+        
+        # Split by bullet points (•) and filter out empty assessments
+        cleaned_assessments = [x.strip() for x in assessments.split("•") if x.strip()]
+        
+        # If no valid assessments, return None
+        if not cleaned_assessments:
+            print("No valid assessments found:", assessments)
+            return None  # Return None if no valid assessments
+        return cleaned_assessments
 
+    # Apply cleaning to the DataFrame
     df_units["Assessments_cleaned"] = df_units["Assessments"].apply(clean_assessments)
 
-
-    all_assessments = [item for sublist in df_units["Assessments_cleaned"] for item in sublist]
+    # Count the occurrences of each assessment
+    all_assessments = [item for sublist in df_units["Assessments_cleaned"] if sublist for item in sublist]
     assessment_counts = Counter(all_assessments)
 
-    # Step 4: Apply the filtering logic iteratively
+    # Filter assessments based on the count and threshold
     def filter_assessments(row, assessment_counts, threshold=3):
-        unique_assessments = []
+        if row is None:  # Handle None case
+            return []
         
-        for assessment in row:
-            # If the assessment appears more than once and the unit has more than threshold assessments, remove it
-            if assessment_counts[assessment] > 1 and len(row) > threshold:
-                continue  # Remove this assessment from the unit
-            # If the assessment appears more than once and the unit has less than threshold assessments, keep it
-            elif assessment_counts[assessment] > 1 and len(row) < threshold:
-                unique_assessments.append(assessment)
-            # Otherwise, always add the assessment
-            else:
-                unique_assessments.append(assessment)
-        
-        return unique_assessments
-
-    # Step 5: Apply the filtering function to each row (unit)
-    df_units["Filtered Assessments"] = df_units["Assessments_cleaned"].apply(
-        lambda row: filter_assessments(row, assessment_counts, threshold=3)
-    )
-
-
-    # Step 4: Apply the filtering logic iteratively
-    def filter_assessments(row, assessment_counts, threshold=3):
-        # Create a list to hold filtered assessments
         filtered_assessments = []
-        # Iterate over the assessments of each unit
         for assessment in row:
-            # If the assessment appears more than once and the unit has more than threshold assessments, remove it
             if assessment_counts[assessment] > 1 and len(row) > threshold:
-                continue  # Remove this assessment from the unit
-            # If the assessment appears more than once and the unit has less than threshold assessments, keep it
-            elif assessment_counts[assessment] > 1 and len(row) < threshold:
-                filtered_assessments.append(assessment)
-            # Otherwise, always add the assessment
-            else:
-                filtered_assessments.append(assessment)
+                print(f"Skipping {assessment} as it is repeated and unit has more than {threshold} assessments.")
+                continue  # Skip if it's a duplicate and unit has more than threshold assessments
+            filtered_assessments.append(assessment)
         
+        # If no assessments remain, take the top 3 from the original list
+        if not filtered_assessments and row:
+            print(f"Fallback to top {threshold} assessments from original list: {row[:threshold]}")
+            filtered_assessments = row[:threshold]
+
         return filtered_assessments
 
-    # Step 5: Apply the filtering function to each row (unit)
+    # Apply filtering to each row (unit)
     df_units["Filtered Assessments"] = df_units["Assessments_cleaned"].apply(
         lambda row: filter_assessments(row, assessment_counts, threshold=3)
     )
 
-    # Step 6: Ensure no unit is left empty but limit to top 3 assessments if necessary
+    # Ensure no unit is left empty; limit to top 3 if necessary
     def recheck_and_limit_empty_units(df, limit=3):
         for index, row in df.iterrows():
-            # If a unit's filtered assessments are empty, we restore the top 3 from its original assessments
-            if not row["Filtered Assessments"]:
+            if not row["Filtered Assessments"]:  # If the filtered assessments are empty
                 original_assessments = row["Assessments_cleaned"]
-                # Ensure that the filtered assessments are limited to the top 3
-                df.at[index, "Filtered Assessments"] = original_assessments[:limit]
+                if original_assessments is None:  # Handle None case
+                    print(f"Empty filtered assessments for unit {index}. No original assessments available.")
+                    df.at[index, "Filtered Assessments"] = []  # Set to empty list
+                else:
+                    print(f"Empty filtered assessments for unit {index}. Replacing with top {limit} from original: {original_assessments[:limit]}")
+                    # Take the top 'limit' number of assessments if filtered ones are empty
+                    df.at[index, "Filtered Assessments"] = original_assessments[:limit]
         return df
 
-    # Step 7: Apply the recheck to limit to top 3 assessments
+    # Recheck and apply the recheck logic
     df_units = recheck_and_limit_empty_units(df_units)
-    df_units.drop(['Assessments','Assessments_cleaned'],axis=1,inplace=True)
+
+    # Drop original columns for cleanliness
+    df_units.drop(["Assessments", "Assessments_cleaned"], axis=1, inplace=True)
    
     
 
